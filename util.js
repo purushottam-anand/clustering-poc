@@ -1,9 +1,22 @@
+import * as ioOperationWorker from './io.js'
+
 export const benchmarkFunction = async () => {
+    const response = await ioOperationWorker({})
+    const {m1, m2, mat1, n1, n2, mat2} = getParamsForMatrixMultiplication()
+    return runCompute(m1, m2, mat1, n1, n2, mat2)
+}
+
+export const benchmarkFunctionWithoutWorker = async () => {
     const response = await makeIOCall()
     const {m1, m2, mat1, n1, n2, mat2} = getParamsForMatrixMultiplication()
     return runCompute(m1, m2, mat1, n1, n2, mat2)
 }
 
+const makeIOCall = async () => {
+    return fetch('https://jsonplaceholder.typicode.com/todos/1')
+        .then(response => response.json())
+        .then(json => console.log(json))
+}
 const getParamsForMatrixMultiplication = () => {
     return {
         mat1: [ [ 2, 4 ], [ 3, 4 ] ],
@@ -13,11 +26,6 @@ const getParamsForMatrixMultiplication = () => {
         n1:2,
         n2:2
     }
-}
-const makeIOCall = async () => {
-    return fetch('https://jsonplaceholder.typicode.com/todos/1')
-        .then(response => response.json())
-        .then(json => console.log(json))
 }
 
 const runCompute = async (m1, m2, mat1, n1, n2, mat2) => {

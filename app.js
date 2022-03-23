@@ -1,5 +1,5 @@
 import express from 'express'
-import {benchmarkFunction} from './util.js';
+import {benchmarkFunctionWithoutWorker} from './util.js';
 const app = express();
 const port = 3000;
 
@@ -24,7 +24,7 @@ app.get("/api/benchmark/:n", async function (req, res) {
     const arrival = Date.now()
     let n = parseInt(req.params.n);
     while (n--) {
-        await benchmarkFunction()
+        await benchmarkFunctionWithoutWorker()
     }
     const departure = Date.now()
     return departure
