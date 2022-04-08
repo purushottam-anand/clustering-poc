@@ -54,3 +54,12 @@ const runCompute = async (m1, m2, mat1, n1, n2, mat2) => {
         console.log("<br>");
     }
 }
+
+export const printFn = (prnt = 'dummmy') => {
+    const abc = 'Response ' + prnt
+    console.log(`printFn printed`, abc)
+    console.log('inside method ' + process.env.workerId)
+    return {
+        ret: 'retuned val ' + abc
+    }
+}
