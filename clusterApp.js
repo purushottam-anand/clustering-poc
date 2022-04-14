@@ -12,14 +12,15 @@ if (cluster.isPrimary) {
         const worker = cluster.fork({workerId: workerId});
         worker.on('message', async msg => {
             console.log(`message called`)
-            if (msg.msgType === 'processIO') {
+            if (msg.msgType === 'processIO') { // A, B
                 console.log(`console --- found`)
-                const ret = await makeApiRequest('abc')
-                msg.returned.value = ret
-                console.log(`API output `, msg.returned.value)
+                const ret = await makeApiRequest(msg.requestId)
+                // msg.returned.value = ret
+                // console.log(`API output `, msg.returned.value)
                 worker.send({
                     msgType: 'IO_PROCESSED',
-                    value: ret
+                    value: ret,
+                    requestId: msg.requestId
                 })
             }
         })
@@ -53,13 +54,15 @@ if (cluster.isPrimary) {
 
     app.get("/api/benchmark/:n", async function (req, res) {
         const returned = {}
+        const requestId = req.params.n
         const ret = process.send({
-            msgType: 'processIO',
+            msgType: 'processIO', // A, B
             data: {arg: 5, workerId: process.env.workerId},
-            returned
+            requestId
         })
         await process.on('message', msg => {
-            if (msg.msgType === 'IO_PROCESSED') {
+            console.log(`io processed`, msg)
+            if (msg.msgType === 'IO_PROCESSED' && msg.requestId === requestId) {
                 console.log(`msg received`, msg.value)
                 res.json({output: msg.value})
             }
@@ -72,5 +75,5 @@ if (cluster.isPrimary) {
 }
 
 const makeApiRequest = async (arg) => {
-    return "from make api request"
+    return `returned_value = ${arg}`
 }
