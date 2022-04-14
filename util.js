@@ -1,21 +1,25 @@
-import * as ioOperationWorker from './io.js'
+// import * as ioOperationWorker from './io.js'
 
-export const benchmarkFunction = async () => {
-    const response = await ioOperationWorker({})
-    const {m1, m2, mat1, n1, n2, mat2} = getParamsForMatrixMultiplication()
-    return runCompute(m1, m2, mat1, n1, n2, mat2)
-}
+// export const benchmarkFunction = async () => {
+//     const response = await ioOperationWorker({})
+//     const {m1, m2, mat1, n1, n2, mat2} = getParamsForMatrixMultiplication()
+//     return runCompute(m1, m2, mat1, n1, n2, mat2)
+// }
+import fetch from "node-fetch"
 
 export const benchmarkFunctionWithoutWorker = async () => {
     const response = await makeIOCall()
     const {m1, m2, mat1, n1, n2, mat2} = getParamsForMatrixMultiplication()
     return runCompute(m1, m2, mat1, n1, n2, mat2)
 }
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
-const makeIOCall = async () => {
-    return fetch('https://jsonplaceholder.typicode.com/todos/1')
-        .then(response => response.json())
-        .then(json => console.log(json))
+export const makeIOCall = async (arg) => {
+    await sleep(arg*1000)
+    return fetch(`https://jsonplaceholder.typicode.com/todos/${arg}`)
+    .then(response =>  response.json()), arg*1000
 }
 const getParamsForMatrixMultiplication = () => {
     return {

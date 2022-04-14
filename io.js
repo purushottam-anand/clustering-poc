@@ -5,11 +5,11 @@ import {
     workerData,
 } from 'worker_threads'
 
-const makeIOCall = async () => {
-    return fetch('https://jsonplaceholder.typicode.com/todos/1')
-        .then(response => response.json())
-        .then(json => console.log(json))
-}
+// const makeIOCall = async () => {
+//     return fetch('https://jsonplaceholder.typicode.com/todos/1')
+//         .then(response => response.json())
+//         .then(json => console.log(json))
+// }
 
 if (isMainThread) {
     module.exports = (data) =>

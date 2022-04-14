@@ -1,6 +1,7 @@
 import express from 'express'
 import cluster from "cluster";
 import OS from "os";
+import {makeIOCall} from './util.js'
 
 if (cluster.isPrimary) {
     console.log(`Master ${process.pid} is running`);
@@ -75,5 +76,7 @@ if (cluster.isPrimary) {
 }
 
 const makeApiRequest = async (arg) => {
-    return `returned_value = ${arg}`
+    const output = await makeIOCall(arg)
+    console.log("API output ", output)
+    return output
 }
