@@ -1,26 +1,22 @@
 import express from 'express'
-const port = 3000;
 import cluster from "cluster";
-import {benchmarkFunction} from './util.js';
 import OS from "os";
-const totalCPUs = OS.cpus().length;
-import PubSub from 'ipc-pubsub'
 
-if (cluster.isMaster) {
-    console.log(`Number of CPUs is ${totalCPUs}`);
+if (cluster.isPrimary) {
     console.log(`Master ${process.pid} is running`);
-
+    const totalCPUs = OS.cpus().length;
+    console.log(`Number of CPUs is ${totalCPUs}`);
     // Fork workers.
     for (let i = 0; i < totalCPUs - 2; i++) {
         const workerId = i + 100
         const worker = cluster.fork({workerId: workerId});
         worker.on('message', async msg => {
             console.log(`message called`)
-            if (msg.msgType === 'processIo') {
+            if (msg.msgType === 'processIO') {
                 console.log(`console --- found`)
                 const ret = await makeApiRequest('abc')
                 msg.returned.value = ret
-                console.log(`reeeetuendeddd `, msg.returned.value)
+                console.log(`API output `, msg.returned.value)
                 worker.send({
                     msgType: 'IO_PROCESSED',
                     value: ret
@@ -36,9 +32,9 @@ if (cluster.isMaster) {
     });
 } else {
     const app = express();
-    console.log(`Worker ${process.pid} started`);
-
+    
     app.get("/", (req, res) => {
+        console.log(`Worker ${process.pid} started`);
         res.send("Hello World!111");
     });
 
@@ -58,24 +54,23 @@ if (cluster.isMaster) {
     app.get("/api/benchmark/:n", async function (req, res) {
         const returned = {}
         const ret = process.send({
-            msgType: 'processIo',
+            msgType: 'processIO',
             data: {arg: 5, workerId: process.env.workerId},
             returned
         })
         await process.on('message', msg => {
             if (msg.msgType === 'IO_PROCESSED') {
-                console.log(`asdfsa`, msg.value)
-                res.send(msg.ret)
+                console.log(`msg received`, msg.value)
+                res.json({output: msg.value})
             }
         })
-        res.send('Kuch nahi')
     });
 
-    app.listen(port, () => {
-        console.log(`App listening on port ${port}`);
+    app.listen(3000, () => {
+        console.log(`App listening on port ${3000}`);
     });
 }
 
 const makeApiRequest = async (arg) => {
-    return "makeApiResponse"
+    return "from make api request"
 }
