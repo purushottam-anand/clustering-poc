@@ -1,7 +1,8 @@
 {
   "express": "4.17.3",
   "dependencies": {
+    "cluster-pubsub": "github:bluejamesbond/PubSub.js",
     "express": "^4.17.3"
   },
-  "type":"module"
+  "type": "module"
 }
