@@ -5,7 +5,7 @@ import {makeIOCall} from './util.js'
 
 if (cluster.isPrimary) {
     const totalCPUs = OS.cpus().length;
-    
+    const clusterMap = {};
     // Fork workers.
     const ioWorker = cluster.fork({workerId: 99, workerType: 'IO_WORKER'});
     
@@ -15,7 +15,9 @@ if (cluster.isPrimary) {
         if (msg.msgType === 'IO_PROCESSED') {
             console.log(`master called after IO is processed`, msg.msgType)
             //send msg to master
-            worker.send({
+            console.log(`workerIddddd`, msg.workerId)
+            const workerHere = clusterMap[msg.workerId]
+            workerHere.send({
                 msgType: msg.newMsgType,
                 msg
             })
@@ -25,10 +27,10 @@ if (cluster.isPrimary) {
     for (let i = 0; i < totalCPUs - 1; i++) {
         const workerId = i + 100
         const worker = cluster.fork({workerId: workerId, workerType: 'CPU_WORKER'});
+        clusterMap[workerId] = worker;
         console.log(`worker created with ID`, workerId)
         //worker to master to callIO
         worker.on('message', async msg => {
-            console.log(`master called fof calling IO`, msg.msgType)
             if (msg.msgType === 'callIO') {
                 console.log(`control inside to call IO`)
                 //send msg to master
@@ -50,7 +52,6 @@ if (cluster.isPrimary) {
     const app = express();
     
     app.get("/", (req, res) => {
-        console.log(`Worker ${process.pid} started`);
         res.send("Hello World!111");
     });
 
@@ -80,12 +81,10 @@ if (cluster.isPrimary) {
         })
 
         await process.on('message', msg => {
-            console.log(`io processed`, msg)
             const currentWorkerId = process.env.workerId
             const relevantMessageType = `IO_PROCESSED_WORKER_ID_${currentWorkerId}`
-            if (msg.msgType === relevantMessageType && msg.msg.requestId === requestId) {
-                console.log(`msg received`, msg.value)
-                res.json({output: msg.value})
+            if (msg.msg.newMsgType === relevantMessageType && msg.msg.workerId === currentWorkerId) {
+                res.json({output: msg.msg.value})
             }
         })
     });
@@ -97,16 +96,15 @@ if (cluster.isPrimary) {
 
     if (process.env.workerId == 99) {
         process.on('message', async msg => {
-            console.log(`IO worker called`)
             if (msg.msgType === 'processIO') {
-                console.log(`console --- found`)
                 const ret = await makeApiRequest(msg.msg.requestId)
-                const msgType = `IO_PROCESSED_WORKER_ID_${msg.data.workerId}`
+                const msgType = `IO_PROCESSED_WORKER_ID_${msg.msg.data.workerId}`
                 process.send({
                     msgType: 'IO_PROCESSED',
                     value: ret,
-                    requestId: msg.requestId,
-                    newMsgType: msgType
+                    requestId: msg.msg.requestId,
+                    newMsgType: msgType,
+                    workerId: msg.msg.data.workerId,
                 })
             }
         })
