@@ -4,35 +4,41 @@ import OS from "os";
 import {makeIOCall} from './util.js'
 
 if (cluster.isPrimary) {
-    console.log(`Master ${process.pid} is running`);
     const totalCPUs = OS.cpus().length;
-    console.log(`Number of CPUs is ${totalCPUs}`);
+    
     // Fork workers.
     const ioWorker = cluster.fork({workerId: 99, workerType: 'IO_WORKER'});
+    
+    //IO worker to master
     ioWorker.on('message', async msg => {
         console.log(`master called fof calling IO`, msg.msgType)
-        if (msg.msgType === 'callIO') {
-            console.log(`control inside to call IO`)
-            const ioWorkerCalled = ioWorker.send({
-                msgType: 'processIO',
-                msg
-            })
-            console.log(`event emmitted for calling worker - `, ioWorkerCalled)
-        }
-    })
-    ioWorker.on('message', async msg => {
-        console.log(`master called after IO is processed`, msg.msgType)
         if (msg.msgType === 'IO_PROCESSED') {
-            ioWorker.send({
+            console.log(`master called after IO is processed`, msg.msgType)
+            //send msg to master
+            worker.send({
                 msgType: msg.newMsgType,
                 msg
             })
         }
     })
+
     for (let i = 0; i < totalCPUs - 1; i++) {
         const workerId = i + 100
         const worker = cluster.fork({workerId: workerId, workerType: 'CPU_WORKER'});
         console.log(`worker created with ID`, workerId)
+        //worker to master to callIO
+        worker.on('message', async msg => {
+            console.log(`master called fof calling IO`, msg.msgType)
+            if (msg.msgType === 'callIO') {
+                console.log(`control inside to call IO`)
+                //send msg to master
+                const ioWorkerCalled = ioWorker.send({
+                    msgType: 'processIO',
+                    msg
+                })
+                console.log(`event emmitted for calling worker - `, ioWorkerCalled)
+            }
+        })
     }
 
     cluster.on("exit", (worker, code, signal) => {
@@ -65,11 +71,14 @@ if (cluster.isPrimary) {
         const returned = {}
         console.log(`api called with n = `, req.params.n, " received at workerId - ", process.env.workerId)
         const requestId = req.params.n
+        
+        //worker to master
         const ret = process.send({
             msgType: 'callIO', // A, B
             data: {arg: 5, workerId: process.env.workerId},
             requestId
         })
+
         await process.on('message', msg => {
             console.log(`io processed`, msg)
             const currentWorkerId = process.env.workerId
