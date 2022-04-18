@@ -2,6 +2,7 @@ import express from 'express'
 import cluster from "cluster";
 import OS from "os";
 import {makeIOCall} from './util.js'
+import {config} from "./config.js";
 
 if (cluster.isPrimary) {
     const totalCPUs = OS.cpus().length;
@@ -11,11 +12,10 @@ if (cluster.isPrimary) {
     
     //IO worker to master
     ioWorker.on('message', async msg => {
-        console.log(`master called fof calling IO`, msg.msgType)
+        console.log(`master called for calling back cpu worker with response`, msg.msgType)
         if (msg.msgType === 'IO_PROCESSED') {
-            console.log(`master called after IO is processed`, msg.msgType)
-            //send msg to master
-            console.log(`workerIddddd`, msg.workerId)
+            //send msg back to CPU worker
+            console.log(`master to cpu back --- `, msg)
             const workerHere = clusterMap[msg.workerId]
             workerHere.send({
                 msgType: msg.newMsgType,
@@ -32,13 +32,12 @@ if (cluster.isPrimary) {
         //worker to master to callIO
         worker.on('message', async msg => {
             if (msg.msgType === 'callIO') {
-                console.log(`control inside to call IO`)
-                //send msg to master
+                //send to IO worker to process IO
                 const ioWorkerCalled = ioWorker.send({
                     msgType: 'processIO',
                     msg
                 })
-                console.log(`event emmitted for calling worker - `, ioWorkerCalled)
+                console.log(`event emitted for calling IO worker - `, ioWorkerCalled)
             }
         })
     }
@@ -50,67 +49,93 @@ if (cluster.isPrimary) {
     });
 } else {
     const app = express();
-    
-    app.get("/", (req, res) => {
-        res.send("Hello World!111");
-    });
-
-    app.get("/api/:n", function (req, res) {
-        let n = parseInt(req.params.n);
-        let count = 0;
-
-        if (n > 5000000000) n = 5000000000;
-
-        for (let i = 0; i <= n; i++) {
-            count += i;
-        }
-
-        res.send(`Final count is ${count}`);
-    });
-
     app.get("/api/benchmark/:n", async function (req, res) {
         const returned = {}
         console.log(`api called with n = `, req.params.n, " received at workerId - ", process.env.workerId)
-        const requestId = req.params.n
+        const requestId = parseInt(req.params.n) + Date.now()
+        const arg = {n: req.params.n}
         
         //worker to master
         const ret = process.send({
             msgType: 'callIO', // A, B
             data: {arg: 5, workerId: process.env.workerId},
-            requestId
+            requestId,
+            arg
         })
 
         await process.on('message', msg => {
             const currentWorkerId = process.env.workerId
             const relevantMessageType = `IO_PROCESSED_WORKER_ID_${currentWorkerId}`
-            if (msg.msg.newMsgType === relevantMessageType && msg.msg.workerId === currentWorkerId) {
+            if (msg.msg.newMsgType === relevantMessageType && msg.msg.requestId === requestId) {
                 res.json({output: msg.msg.value})
             }
         })
     });
     if (process.env.workerId != 99) {
-        app.listen(3000, () => {
-            console.log(`App listening on port ${3000}`);
+        app.listen(config.port, () => {
+            console.log(`App listening on port ${config.port}`);
         });
     }
 
     if (process.env.workerId == 99) {
+        let queue = []
         process.on('message', async msg => {
             if (msg.msgType === 'processIO') {
-                const ret = await makeApiRequest(msg.msg.requestId)
-                const msgType = `IO_PROCESSED_WORKER_ID_${msg.msg.data.workerId}`
-                process.send({
-                    msgType: 'IO_PROCESSED',
-                    value: ret,
-                    requestId: msg.msg.requestId,
-                    newMsgType: msgType,
-                    workerId: msg.msg.data.workerId,
-                })
+                queue.push(msg)
+                setInterval(
+                    async function () {
+                        let tempQueue = queue
+                        queue = [] // TODO: check if we can miss requests in transient period !
+                        if (tempQueue.length > 0) {
+                            await batchAndSendResponse(tempQueue);
+                            tempQueue = []
+                        }
+                    },
+                    config.batchingInterval
+                )
             }
         })
     }
 }
 
+const batchAndSendResponse = async (requestsQueue) => {
+    const batchedRequests = getBatchedRequests(requestsQueue)
+    const promiseArray = []
+    const batchedReqKeys = Object.keys(batchedRequests)
+    for (let key of batchedReqKeys) {
+        promiseArray.push(makeApiRequest(key)) // TODO: fix this to be arg from any object
+    }
+    const apiResponses = await Promise.all(promiseArray)
+    let i = 0;
+    for(let key of batchedReqKeys) {
+        const apiResponse = apiResponses[i]
+        i++;
+        const relevantRequests = batchedRequests[key]
+        for (let relevantRequest of relevantRequests) {
+            const returnMessage = relevantRequest.request.msg
+            const msgType = `IO_PROCESSED_WORKER_ID_${returnMessage.data.workerId}`
+            process.send({
+                msgType: 'IO_PROCESSED',
+                value: apiResponse,
+                requestId: returnMessage.requestId,
+                newMsgType: msgType,
+                workerId: returnMessage.data.workerId,
+            })
+        }
+    }
+}
+
+const getBatchedRequests = (requestsQueue) => {
+    const requestsMap = {}
+    for (let request of requestsQueue) {
+        if (requestsMap[request.msg.arg.n]) {
+            requestsMap[request.msg.arg.n].push({arg: request.msg.arg.n, request})
+        } else {
+            requestsMap[request.msg.arg.n] = [{arg: request.msg.arg.n, request}]
+        }
+    }
+    return requestsMap
+}
 const makeApiRequest = async (arg) => {
     const output = await makeIOCall(arg)
     console.log("API output ", output)
