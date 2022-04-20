@@ -50,19 +50,18 @@ if (cluster.isPrimary) {
 } else {
     const app = express();
     app.get("/api/benchmark/:n", async function (req, res) {
-        const returned = {}
-        console.log(`api called with n = `, req.params.n, " received at workerId - ", process.env.workerId)
+        console.log(`api called with n = `, req.params.n, " received at workerId - ", process.env.workerId, new Date().toISOString())
         const requestId = parseInt(req.params.n) + Date.now()
         const arg = {n: req.params.n}
-        
+
         //worker to master
         const ret = process.send({
-            msgType: 'callIO', // A, B
-            data: {arg: 5, workerId: process.env.workerId},
+            msgType: 'callIO',
+            data: {arg: req.params.n, workerId: process.env.workerId},
             requestId,
             arg
         })
-
+        console.log(`Mater called for getting IO processed --- `, req.params.n)
         await process.on('message', msg => {
             const currentWorkerId = process.env.workerId
             const relevantMessageType = `IO_PROCESSED_WORKER_ID_${currentWorkerId}`
@@ -82,6 +81,7 @@ if (cluster.isPrimary) {
         process.on('message', async msg => {
             if (msg.msgType === 'processIO') {
                 queue.push(msg)
+                console.log(`pushed to queue `, new Date().toISOString(), msg)
                 setInterval(
                     async function () {
                         let tempQueue = queue
@@ -99,6 +99,7 @@ if (cluster.isPrimary) {
 }
 
 const batchAndSendResponse = async (requestsQueue) => {
+    console.log(`batchAndSendResponse called --- `, new Date().toISOString(), requestsQueue.length, requestsQueue)
     const batchedRequests = getBatchedRequests(requestsQueue)
     const promiseArray = []
     const batchedReqKeys = Object.keys(batchedRequests)
