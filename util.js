@@ -18,12 +18,9 @@ function sleep(ms) {
 
 export const makeIOCall = async (arg) => {
     // await sleep(arg*1000)
-    const res = await fetch(`https://retoolapi.dev/eFNrlf/data`)
+    return fetch(`https://jsonplaceholder.typicode.com/todos/${arg}`)
     .then(response =>  response.json())
-    console.log(`rrreesss `, res)
-    return res
 }
-
 const getParamsForMatrixMultiplication = () => {
     return {
         mat1: [ [ 2, 4 ], [ 3, 4 ] ],
