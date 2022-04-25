@@ -1,9 +1,15 @@
 {
   "express": "4.17.3",
   "dependencies": {
+    "body-parser": "^1.20.0",
     "cluster-pubsub": "github:bluejamesbond/PubSub.js",
+    "dataloader": "^2.1.0",
     "express": "^4.17.3",
-    "node-fetch": "^3.2.3"
+    "node-fetch": "^3.2.3",
+    "wrk": "^1.2.1"
   },
-  "type": "module"
+  "type": "module",
+  "devDependencies": {
+    "cors": "^2.8.5"
+  }
 }

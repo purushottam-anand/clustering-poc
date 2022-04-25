@@ -1,5 +1,6 @@
 import express from 'express';
-import * as PubSub from '../dist/index';
+import * as PubSub from '../../Desktop/pubsub.js/dist/index.js';
+import * as http from "http";
 
 const debug = true;
 const remote = true
