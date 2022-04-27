@@ -47,11 +47,17 @@ if (cluster.isPrimary) {
         // console.log("Let's fork another worker!");
         cluster.fork();
     });
+
+    cluster.on("error", (worker, code, signal) => {
+        // console.log(`worker ${worker.process.pid} died`);
+        // console.log("Let's fork another worker!");
+        // cluster.fork();
+    });
 } else {
     const app = express();
     app.get("/api/benchmark/:n", async function (req, res) {
         // console.log(`api called with n = `, req.params.n, " received at workerId - ", process.env.workerId, new Date().toISOString())
-        const requestId = parseInt(req.params.n) + Date.now()
+        const requestId = req.params.n + Math.random()%1000000
         const arg = {n: req.params.n}
 
         //worker to master

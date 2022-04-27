@@ -51,7 +51,7 @@ if (cluster.isPrimary) {
     const app = express();
     app.get("/api/benchmark/:n", async function (req, res) {
         // console.log(`api called with n = `, req.params.n, " received at workerId - ", process.env.workerId, new Date().toISOString())
-        const requestId = parseInt(req.params.n) + Date.now() + Math.random()%100
+        const requestId = req.params.n + Math.random()%1000000
         const arg = {n: req.params.n}
 
         //worker to master
